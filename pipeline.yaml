@@ -19,3 +19,9 @@ steps:
     inlineScript: |
       az ad sp create-for-rbac --skip-assignment
 
+
+- task: Bash@3
+  displayName: 'Deploy on nginx-app on Kubernetes'
+  inputs:
+    targetType: filePath
+    filePath: ./kantar.sh
