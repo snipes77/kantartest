@@ -1,11 +1,47 @@
+trigger:
+- master
 
+pool:
+  vmImage: ubuntu-latest
 
+parameters:
+- name: terraformVersion
+  type: string
+- name: serviceName
+  type: string
+- name: TerraformDirectory
+  type: string
+- name: AzureSubscriptionServiceConnectionName
+  type: string
+- name: TerraformStateStorageAccountResourceGroupName
+  type: string
+- name: TerraformStateStorageAccountName
+  type: string
+- name: TerraformStateStorageAccountContainerName
+  type: string
+- name: TerraformDirectory
+  type: string
+- name: AzureSubscriptionServiceConnectionName
+  type: string
+- name: commandOptions
+  default: '-out=$(System.DefaultWorkingDirectory)/terraform.tfplan -detailed-exitcode'
+- name: additionalParameters
+  type: object
+  default: []
+- name: TerraformDirectory
+  type: string
+- name: AzureSubscriptionServiceConnectionName
+  type: string
+- name: additionalParameters
+  type: object
+  default: []
 
+steps:
 - task: AzureCLI@2
   displayName: Create Service Principal
   inputs:
-    azureSubscription: <Name of the Azure Resource Manager service connection>
-    scriptType: ps
+    azureSubscription: $(connection)
+    scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
       az ad sp create-for-rbac --skip-assignment
@@ -13,26 +49,35 @@
 - task: TerraformInstaller
   displayName: install terraform
   inputs:
-    terraformVersion: latest
-- task: TerraformCLI
-  displayName: 'terraform init'
+    inputs:
+        terraformVersion: ${{ parameters.terraformVersion }}
+
+- task: TerraformCLI@0
+  displayName: 'Terraform : init'
   inputs:
-    command: init
-    backendType: azurerm
-    # Service connection to authorize backend access. Supports Subscription & Management Group Scope
-    backendServiceArm: 'My Azure Service Connection'
-    # Subscription id of the target backend. This can be used to specify the subscription when using Management Group scoped
-    # Service connection or to override the subscription id defined in a Subscription scoped service connection
-    backendAzureRmSubscriptionId: 'my-backend-subscription-id'
-    # create backend storage account if doesn't exist
-    ensureBackend: true
-    backendAzureRmResourceGroupName: 'my-backend-resource-group'
-    # azure location shortname of the backend resource group and storage account
-    backendAzureRmResourceGroupLocation: 'eastus'
-    backendAzureRmStorageAccountName: 'my-backend-storage-account'
-    # azure storage account sku, used when creating the storage account
-    backendAzureRmStorageAccountSku: 'Standard_RAGRS'
-    # azure blob container to store the state file
-    backendAzureRmContainerName: 'my-backend-blob-container'
-    # azure blob file name
-    backendAzureRmKey: infrax.tfstate
+      command: init
+      backendType: azurerm
+      workingDirectory: ${{ parameters.TerraformDirectory }}
+      backendServiceArm: ${{ parameters.AzureSubscriptionServiceConnectionName }}
+      backendAzureRmResourceGroupName: ${{ parameters.TerraformStateStorageAccountResourceGroupName }}
+      backendAzureRmStorageAccountName: ${{ parameters.TerraformStateStorageAccountName }}
+      backendAzureRmContainerName: ${{ parameters.TerraformStateStorageAccountContainerName }}
+      backendAzureRmKey: ${{ parameters.serviceName }}.tfstate
+
+- task: TerraformCLI@0
+  displayName: 'Terraform : plan'
+  inputs:
+        command: plan
+        workingDirectory: ${{ parameters.TerraformDirectory }}
+        publishPlanResults: ${{ parameters.AzureSubscriptionServiceConnectionName }}
+        environmentServiceName: ${{ parameters.AzureSubscriptionServiceConnectionName }}
+        commandOptions: ${{ parameters.commandOptions }}
+
+- task: TerraformCLI@0
+  displayName: 'Terraform : apply'
+  condition: and(succeeded(), eq(variables['TERRAFORM_PLAN_HAS_CHANGES'],'true'))
+  inputs:
+    command: apply
+    workingDirectory: ${{ parameters.TerraformDirectory }}
+    commandOptions: '$(System.DefaultWorkingDirectory)/terraform.tfplan'
+    environmentServiceName: ${{ parameters.AzureSubscriptionServiceConnectionName }}
