@@ -35,13 +35,22 @@ spec:
       - name: kantar
         secret:
           secretName: api-key
-          optional: false 
+          optional: false
+      - name: cache
+        emptyDir: {}
+      - name: run
+        emptyDir: {}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - mountPath: /var/cache/nginx/
+              name: cache
+            - name: run
+              mountPath: /var/run
           env:
            - name: API_KEY
              valueFrom:

@@ -25,16 +25,16 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
+podSecurityContext: 
   # fsGroup: 2000
-
+   runAsUser: 2100
 securityContext: 
   # capabilities:
   #   drop:
   #   - ALL
   # readOnlyRootFilesystem: true
    runAsNonRoot: true
-   runAsUser: 1000
+   runAsUser: 3000
 
 service:
   type: NodePort
