@@ -8,6 +8,10 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  strategy:
+     type: RollingUpdate
+     rollingUpdate:
+       maxUnavailable: 1
   selector:
     matchLabels:
       {{- include "nginx.selectorLabels" . | nindent 6 }}
@@ -27,12 +31,24 @@ spec:
       serviceAccountName: {{ include "nginx.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:  
+      - name: kantar
+        secret:
+          secretName: api-key
+          optional: false 
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+           - name: API_KEY
+             valueFrom:
+               secretKeyRef:
+                 name: api-key
+                 key: password
+                 optional: false
           ports:
             - name: http
               containerPort: 80
